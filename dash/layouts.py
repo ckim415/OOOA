@@ -6,8 +6,11 @@ from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.express as px
 from style import SIDEBAR_STYLE, CONTENT_STYLE
+import re
+from ast import literal_eval
 
 df = pd.read_csv('concat_df.csv')
+reco_df = pd.read_csv('reco_df.csv')
 year_df = pd.read_csv('year_df.csv')
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 PLOTLY_LOGO = "https://images.plot.ly/logo/new-branding/plotly-logomark.png"
@@ -22,6 +25,30 @@ def generate_table(dataframe, max_rows=5):
             html.Tr([ html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
                       ]) for i in range(min(len(dataframe), max_rows)) ]) ])
 
+# 추천 시스템
+def find_title(df, noun, top_n=10):
+    # df['nouns'] = df['nouns'].apply(literal_eval)
+    df['in_nouns_literal'] = df['nouns'].apply(lambda x: True if noun in x else False)
+    df['in_nouns_literal'].value_counts()
+    title_index = df[df['in_nouns_literal'] == True].index.values
+    new_df = df.iloc[title_index][['categories', 'title', 'funding_amounts', 'likes']]
+
+    new_df = new_df[(new_df['categories'] == new_df['categories'].value_counts().index[0])]
+
+    C = new_df['funding_amounts'].mean()
+    m = new_df['likes'].quantile(0.6)
+
+    # return new_df, C, m
+
+    def weighted_funding_average(record):
+        v = record['likes']
+        R = record['funding_amounts']
+        return ((v / (v + m)) * R) + ((m / (v + m)) * C)
+
+    new_df['weighted_funding'] = new_df.apply(weighted_funding_average, axis=1)
+    # new_df['weighted_funding'] = new_df['weighted_funding'].apply(lambda x: round(x,2))
+    return new_df.sort_values('weighted_funding', ascending=False)[:top_n]
+
 # 사이드바
 sidebar = html.Div([
     html.H2('OOOA', className='display-4'),
@@ -32,7 +59,8 @@ sidebar = html.Div([
         dbc.NavLink('page1', href='/page-1', active='exact'),
         dbc.NavLink('page2', href='/page-2', active='exact'),
         dbc.NavLink('page3', href='/page-3', active='exact'),
-        dbc.NavLink('Dataframe', href='/dataframe', active='exact')
+        dbc.NavLink('Dataframe', href='/dataframe', active='exact'),
+        dbc.NavLink('추천시스템', href='/system', active='exact')
     ],
     vertical=True,
     pills=True),
@@ -104,3 +132,4 @@ multiple_input = \
                step=None)
         ])
     ])
+
