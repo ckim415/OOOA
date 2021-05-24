@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.express as px
 from style import SIDEBAR_STYLE, CONTENT_STYLE
-from layouts import navbar, sidebar, content, generate_table, search_bar, multiple_input
+from layouts import navbar, sidebar, content, generate_table, search_bar, multiple_input, find_title
 import matplotlib.pyplot as plt
 
 #Instantiates the Dash app and identify the server
@@ -14,6 +14,7 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 PLOTLY_LOGO = "https://images.plot.ly/logo/new-branding/plotly-logomark.png"
 df = pd.read_csv('concat_df.csv')
 year_df = pd.read_csv('year_df.csv')
+reco_df = pd.read_csv('reco_df.csv')
 server = app.server
 
 
@@ -48,7 +49,7 @@ def render_page_content(pathname):
                 html.H1('Grad School in Iran',
                         style={'textAlign':'center'}),
                 dcc.Graph(id='bargraph',
-                          figure=px.bar(year_df, barmode='group', x=df['start_year'].unique(),
+                          figure=px.bar(year_df, barmode='group', x=df['start_year'],
                                         y=df['start_year'].value_counts()))
 
         ]
@@ -63,11 +64,12 @@ def render_page_content(pathname):
         ]
     # 페이지4 출력
     elif pathname == '/dataframe':
+
         return [
                 html.Div([
                     dbc.Button('Download CSV', id='btn_csv', color='primary', style={'margin':'1rem'}),
                     dcc.Download(id='download-dataframe-csv'),
-                dbc.Table(generate_table(df),
+                dbc.Table(generate_table(df, 5),
                           bordered=True,
                           dark=True,
                           hover=True,
@@ -75,6 +77,23 @@ def render_page_content(pathname):
                           striped=True),
                 ])
         ]
+    elif pathname == '/system':
+        # cate = dbc.Form([input_cate_input])
+        asd = find_title(reco_df, '립밤', top_n=10)
+        return [
+            html.Div([
+            dbc.Label('카테고리 입력', html_for='input_cate'),
+            dbc.Input(id='input_cate', placeholder='Enter category', type='text'),
+            dbc.FormText('카테고리를 입력하세요', color='secondary'),
+            dbc.Table(generate_table(asd, 10),
+                      bordered=True,
+                      dark=True,
+                      hover=True,
+                      responsive=True,
+                      striped=True),
+            ])
+        ]
+
     # 에러메세지 출력
     return dbc.Jumbotron([
         html.H1('404:not found', className='text-danger'),
@@ -112,6 +131,10 @@ def update_figure(xaxis_column_name, yaxis_column_name,
                      type='linear' if yaxis_type == 'Linear' else 'log')
 
     return fig
+
+@app.callback(Output('output','children'), [Input('input','value')])
+def output_text(value):
+    return value
 
 if __name__ =='__main__':
     app.run_server()
